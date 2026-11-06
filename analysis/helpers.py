@@ -60,22 +60,6 @@ def ldref_prefix(chrom):
     return LDREF_DIR / f"1000G.EUR.{chrom}"
 
 
-def allele_frequencies(geno):
-    alt = np.nanmean(geno, axis=0) / 2.0
-    maf = np.minimum(alt, 1.0 - alt)
-    return alt, maf
-
-
-def classify_maf(maf):
-    return pd.cut(maf, bins=[-0.001, 0.01, 0.05, 0.5], labels=["rare", "low_frequency", "common"])
-
-
-def maf_summary(geno):
-    _, maf = allele_frequencies(geno)
-    counts = pd.Series(classify_maf(maf)).value_counts().rename("n")
-    return pd.DataFrame({"n": counts, "proportion": counts / counts.sum()})
-
-
 def plink_run(args, *, check=True, quiet=True):
     if not PLINK2.exists():
         raise FileNotFoundError(
@@ -314,10 +298,3 @@ def aggregate_scores(out_dir, pattern, threshold):
             total["prs"] = total["prs"].fillna(0) + total["s"].fillna(0)
             total = total.drop(columns="s")
     return total if total is not None else pd.DataFrame(columns=["IID", "prs"])
-
-
-def standardize(individual_prs, reference_prs):
-    mu, sd = float(np.mean(reference_prs)), float(np.std(reference_prs))
-    pct = round(float(np.mean(reference_prs < individual_prs) * 100), 1)
-    return {"prs": individual_prs, "ref_mean": mu, "ref_sd": sd,
-            "z": round((individual_prs - mu) / sd, 2), "percentile": pct}
