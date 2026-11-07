@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 LDREF_DIR = ROOT / "data" / "genotype" / "LDREF"
 EXPRESSION_FILE = ROOT / "data" / "phenotype" / "GD462.GeneQuantRPKM.50FN.samplename.resk10.txt.gz"
-GENE_ANNOT_FILE = ROOT / "data" / "annotation" / "gene_annot.txt.gz"
+GENE_ANNOT_FILE = ROOT / "data" / "annotation" / "gencode.v19.annotation.gtf.gz"
 HEIGHT_GWAS_FILE = ROOT / "data" / "gwas" / "Height.gwas.txt.gz"
 
 OUT_EQTL = ROOT / "output" / "part1_eqtl"
@@ -30,6 +30,31 @@ def read_expression(path=EXPRESSION_FILE):
 
 
 def read_gene_annotation(path=GENE_ANNOT_FILE):
+    if str(path).endswith((".gtf", ".gtf.gz")):
+        rows = []
+        with pd.io.common.get_handle(path, "r", compression="infer") as h:
+            for line in h.handle:
+                if line.startswith("#"):
+                    continue
+                f = line.rstrip("\n").split("\t")
+                if len(f) < 9 or f[2] != "gene":
+                    continue
+                attrs = {}
+                for part in f[8].strip().split(";"):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    k, v = part.split(" ", 1)
+                    attrs[k] = v.strip('"')
+                rows.append({
+                    "ID":    attrs.get("gene_name", ""),
+                    "CHR":   int(f[0].replace("chr", "")) if f[0].replace("chr", "").isdigit() else f[0].replace("chr", ""),
+                    "START": int(f[3]),
+                    "STOP":  int(f[4]),
+                    "SYM":   attrs.get("gene_id", "").split(".")[0],
+                    "TYPE":  attrs.get("gene_type", ""),
+                })
+        return pd.DataFrame(rows)
     return pd.read_csv(path, sep="\t", compression="infer")
 
 
